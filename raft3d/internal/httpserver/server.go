@@ -7,6 +7,7 @@ import (
     "sync"
 
     "github.com/gorilla/mux"
+    "github.com/hashicorp/raft"
 )
 
 // ====== STRUCTS ======
@@ -19,7 +20,7 @@ type Printer struct {
 
 type Filament struct {
     ID                     string `json:"id"`
-    Type                   string `json:"type"` // PLA, PETG, ABS, TPU
+    Type                   string `json:"type"`
     Color                  string `json:"color"`
     TotalWeightInGrams     int    `json:"total_weight_in_grams"`
     RemainingWeightInGrams int    `json:"remaining_weight_in_grams"`
@@ -37,12 +38,13 @@ type PrintJob struct {
 // ====== IN-MEMORY STORAGE ======
 
 var (
-    printers   = make(map[string]Printer)
-    filaments  = make(map[string]Filament)
-    printJobs  = make(map[string]PrintJob)
-    printerMux sync.Mutex
+    printers    = make(map[string]Printer)
+    filaments   = make(map[string]Filament)
+    printJobs   = make(map[string]PrintJob)
+    printerMux  sync.Mutex
     filamentMux sync.Mutex
     printJobMux sync.Mutex
+    raftNode    *raft.Raft   // <<< ADD this global raft node
 )
 
 // ====== SERVER START ======
@@ -51,6 +53,7 @@ func Start(port int) {
     r := mux.NewRouter()
 
     r.HandleFunc("/health", healthHandler).Methods("GET")
+    r.HandleFunc("/leave", leaveHandler).Methods("POST") // <<< New API to leave
 
     // Printers
     r.HandleFunc("/api/v1/printers", CreatePrinter).Methods("POST")
@@ -72,11 +75,35 @@ func Start(port int) {
     }
 }
 
+// ====== SET RAFT NODE ======
+
+// SetRaftNode sets the Raft node for the HTTP server to use.
+func SetRaftNode(r *raft.Raft) {
+    raftNode = r
+}
+
 // ====== HANDLERS ======
 
 func healthHandler(w http.ResponseWriter, r *http.Request) {
     w.WriteHeader(http.StatusOK)
     w.Write([]byte("Server is running 🚀"))
+}
+
+// Leave Handler
+func leaveHandler(w http.ResponseWriter, r *http.Request) {
+    if raftNode == nil {
+        w.WriteHeader(http.StatusInternalServerError)
+        w.Write([]byte("Raft node not initialized"))
+        return
+    }
+    err := raftNode.RemoveServer(raft.ServerID("01"), 0, 0).Error()
+    if err != nil {
+        w.WriteHeader(http.StatusInternalServerError)
+        w.Write([]byte(fmt.Sprintf("Failed to leave cluster: %v", err)))
+    } else {
+        w.WriteHeader(http.StatusOK)
+        w.Write([]byte("Node 01 left the cluster successfully"))
+    }
 }
 
 // --- Printers ---

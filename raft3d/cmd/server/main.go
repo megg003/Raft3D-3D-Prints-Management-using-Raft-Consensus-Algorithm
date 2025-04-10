@@ -41,6 +41,9 @@ func main() {
         return
     }
 
+    // --- ✨ SET RaftNode in HTTP server ---
+    httpserver.SetRaftNode(raftNode)
+
     // --- Start HTTP Server in a separate goroutine ---
     go httpserver.Start(httpPort)
 
