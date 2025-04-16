@@ -1,6 +1,7 @@
 package main
 
 import (
+    "encoding/gob"
     "fmt"
     "os"
     "os/signal"
@@ -9,9 +10,20 @@ import (
 
     "raft3d/internal/httpserver"
     "raft3d/internal/raftnode"
+    "raft3d/internal/model"
 )
 
 func main() {
+    gob.Register(model.Printer{})
+    fmt.Println("Registered model.Printer with gob")
+    gob.Register(model.Filament{})
+    fmt.Println("Registered model.Filament with gob")
+    gob.Register(model.PrintJob{})
+    fmt.Println("Registered model.PrintJob with gob")
+    gob.Register(model.StatusUpdate{})
+    fmt.Println("Registered model.StatusUpdate with gob")
+    gob.Register(raftnode.Command{})
+
     // --- Parse Command-line arguments ---
 
     if len(os.Args) != 3 {
@@ -35,7 +47,7 @@ func main() {
     }
 
     // --- Initialize Raft Node ---
-    raftNode, err := raftnode.NewRaftNode(raftConfig)
+    raftNode, kvStore, err := raftnode.NewRaftNode(raftConfig)
     if err != nil {
         fmt.Println("Failed to initialize Raft node:", err)
         return
@@ -43,6 +55,7 @@ func main() {
 
     // --- ✨ SET RaftNode in HTTP server ---
     httpserver.SetRaftNode(raftNode)
+    httpserver.SetKVStore(kvStore)
 
     // --- Start HTTP Server in a separate goroutine ---
     go httpserver.Start(httpPort)
@@ -55,3 +68,4 @@ func main() {
     fmt.Println("Shutting down...")
     raftNode.Shutdown()
 }
+
