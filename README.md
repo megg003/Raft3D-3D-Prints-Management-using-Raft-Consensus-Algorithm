@@ -6,7 +6,7 @@ A distributed backend service to manage 3D printing jobs using the **Raft Consen
 ## Overview
 
 Raft3D simulates a fault-tolerant distributed system for managing 3D printers, filaments, and print jobs. It ensures consistency across nodes using the Raft protocol, allowing for leader election, failover recovery, and data persistence.
-
+ 
 ## Features
 
 - RESTful API endpoints
